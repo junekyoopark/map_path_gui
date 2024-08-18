@@ -219,7 +219,7 @@ class MapClickApp(QMainWindow):
                     for row in reader:
                         if len(row) == 2:
                             lat, lon = map(float, row)
-                            x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
+                            x = ((x - (display_width/2)) * self.meters_per_pixel / (111320 * math.cos(math.radians(self.latitude)))) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
                             y = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
                             self.click_history.append((int(x), int(y), lat, lon))
                 self.redraw_points()
@@ -273,11 +273,14 @@ class MapClickApp(QMainWindow):
                     for row in reader:
                         if len(row) == 2:
                             delta_lat_meters, delta_lon_meters = map(float, row)
-                            lat = self.latitude - (delta_lat_meters / 111320)
+                            lat = (self.latitude - (delta_lat_meters / 111320))
                             lon = self.longitude + (delta_lon_meters / (111320 * math.cos(math.radians(self.latitude))))
-                            y = -(lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
-                            x = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
+                            # print(str(lat) + ", " + str(lon))
+                            x = (-lon + self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
+                            y = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
                             self.click_history.append((int(x), int(y), lat, lon))
+                            print(str(x) + ", " + str(y))
+
                 self.redraw_points()
                 self.csv_loaded = True  # Set flag to True when CSV is successfully loaded
                 print("Waypoints in meters loaded successfully.")
