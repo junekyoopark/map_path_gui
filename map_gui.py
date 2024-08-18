@@ -87,6 +87,11 @@ class MapClickApp(QMainWindow):
         self.load_button.clicked.connect(self.load_coordinates)
         layout.addWidget(self.load_button)
 
+        # Save As button
+        self.save_button = QPushButton("Save As", self)
+        self.save_button.clicked.connect(self.save_as)
+        layout.addWidget(self.save_button)
+
 
     def get_pos(self, event):
         x, y = event.pos().x(), event.pos().y()
@@ -136,18 +141,40 @@ class MapClickApp(QMainWindow):
                 writer.writerow([lat, lon])
 
     def load_coordinates(self):
-        try:
-            with open(self.csv_file_path, 'r', newline='') as file:
-                reader = csv.reader(file)
-                for row in reader:
-                    if len(row) == 2:
-                        lat, lon = map(float, row)
-                        x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
-                        y = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
-                        self.click_history.append((x, y, lat, lon))
-            self.redraw_points()
-        except Exception as e:
-            print("Failed to load coordinates:", str(e))
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open CSV file", "", "CSV Files (*.csv)")
+        if file_path:
+            try:
+                with open(file_path, 'r', newline='') as file:
+                    reader = csv.reader(file)
+                    self.click_history.clear()  # Optionally clear existing data
+                    for row in reader:
+                        if len(row) == 2:
+                            lat, lon = map(float, row)
+                            # Convert geographic coordinates to screen coordinates
+                            x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
+                            y = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
+                            # Append to click history
+                            self.click_history.append((int(x), int(y), lat, lon))
+                self.redraw_points()  # Draw all points
+            except Exception as e:
+                print("Failed to load coordinates:", str(e))
+
+    def save_as(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "CSV Files (*.csv)", options=options)
+        if file_path:
+            if not file_path.endswith('.csv'):
+                file_path += '.csv'
+            try:
+                with open(file_path, 'w', newline='') as file:
+                    writer = csv.writer(file)
+                    for _, _, lat, lon in self.click_history:
+                        writer.writerow([lat, lon])
+                print("File saved successfully.")
+            except Exception as e:
+                print("Failed to save file:", str(e))
+
 
 
 def main():
