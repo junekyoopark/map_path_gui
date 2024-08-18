@@ -14,9 +14,9 @@ height = 2000
 display_width = 1000
 display_height = 1000
 
-latitude = 35.9466289
-longitude = 126.5909605
-zoom = 18
+latitude = 36.661078
+longitude = 126.342193
+zoom = 17
 maptype = 'satellite'
 
 def load_naver_api_credentials(file_path):
