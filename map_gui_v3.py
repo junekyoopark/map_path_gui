@@ -1,7 +1,7 @@
 import sys
 import os
 import csv
-from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QWidget, QPushButton, QFileDialog
+from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QFileDialog
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen
 from PyQt5.QtCore import Qt
 from PIL import Image
@@ -77,20 +77,30 @@ class MapClickApp(QMainWindow):
         self.action_history = []
         self.csv_loaded = False  # Track if a CSV has been loaded
 
+        # Horizontal layout for load, save, and load in meters buttons
+        button_layout = QHBoxLayout()
+
         # Load button
-        self.load_button = QPushButton("Load Coordinates", self)
+        self.load_button = QPushButton("Load Coordinates in Lat/Long", self)
         self.load_button.clicked.connect(self.load_coordinates)
-        layout.addWidget(self.load_button)
+        button_layout.addWidget(self.load_button)
 
         # Save As button
         self.save_button = QPushButton("Save As", self)
         self.save_button.clicked.connect(self.save_as)
-        layout.addWidget(self.save_button)
+        button_layout.addWidget(self.save_button)
 
         # Save in Meters button
         self.save_meters_button = QPushButton("Save Waypoints in Meters", self)
         self.save_meters_button.clicked.connect(self.save_waypoints_in_meters)
-        layout.addWidget(self.save_meters_button)
+        button_layout.addWidget(self.save_meters_button)
+
+        # Load in Meters button
+        self.load_meters_button = QPushButton("Load Waypoints in Meters", self)
+        self.load_meters_button.clicked.connect(self.load_waypoints_in_meters)
+        button_layout.addWidget(self.load_meters_button)
+
+        layout.addLayout(button_layout)
 
     def get_pos(self, event):
         x, y = event.pos().x(), event.pos().y()
@@ -252,6 +262,27 @@ class MapClickApp(QMainWindow):
                 print("Waypoints in meters saved successfully.")
             except Exception as e:
                 print("Failed to save waypoints in meters:", str(e))
+
+    def load_waypoints_in_meters(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open Meters CSV file", "", "CSV Files (*.csv)")
+        if file_path:
+            try:
+                with open(file_path, 'r', newline='') as file:
+                    reader = csv.reader(file)
+                    self.click_history.clear()
+                    for row in reader:
+                        if len(row) == 2:
+                            delta_lat_meters, delta_lon_meters = map(float, row)
+                            lat = self.latitude - (delta_lat_meters / 111320)
+                            lon = self.longitude + (delta_lon_meters / (111320 * math.cos(math.radians(self.latitude))))
+                            x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
+                            y = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
+                            self.click_history.append((int(x), int(y), lat, lon))
+                self.redraw_points()
+                self.csv_loaded = True  # Set flag to True when CSV is successfully loaded
+                print("Waypoints in meters loaded successfully.")
+            except Exception as e:
+                print("Failed to load waypoints in meters:", str(e))
 
 def main():
     api_path = os.path.join(os.path.dirname(__file__), '../config/naver_api.txt')
