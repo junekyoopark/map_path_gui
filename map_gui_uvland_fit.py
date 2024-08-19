@@ -2,7 +2,7 @@ import sys
 import os
 import subprocess
 import csv
-from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QFileDialog
+from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QFileDialog, QMessageBox
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen
 from PyQt5.QtCore import Qt
 from PIL import Image
@@ -44,13 +44,16 @@ def fetch_map_image(latitude, longitude, zoom, maptype, size, CLIENT_ID, CLIENT_
 class MapClickApp(QMainWindow):
     def __init__(self, image, latitude, longitude, zoom, csv_file_path):
         super().__init__()
+
+        self.show_warning_message()
+
         self.latitude = latitude
         self.longitude = longitude
         self.zoom = zoom
         self.csv_file_path = csv_file_path
         self.meters_per_pixel = (40075016.686 * math.cos(math.radians(latitude))) / (2 ** (zoom + 8))
         
-        self.setWindowTitle("GUI Path Generator (UVLand)")
+        self.setWindowTitle("GUI Path Generator v0.9.1 by JKP")
         self.setGeometry(100, 100, display_width, display_height)
 
         self.base_image = image.resize((display_width, display_height), Image.ANTIALIAS)
@@ -63,7 +66,7 @@ class MapClickApp(QMainWindow):
         self.label.setPixmap(self.base_pixmap.copy())
         self.label.mousePressEvent = self.get_pos
 
-        self.undo_button = QPushButton("Undo", self)
+        self.undo_button = QPushButton("UNDO (UNCLICK)", self)
         self.undo_button.clicked.connect(self.undo_last_action)
         layout = QVBoxLayout(self)
         layout.addWidget(self.undo_button)
@@ -82,42 +85,52 @@ class MapClickApp(QMainWindow):
         button_layout = QHBoxLayout()
 
         # Load button
-        self.load_button = QPushButton("Load WP (Lat/Lon)", self)
+        self.load_button = QPushButton("LOAD WP (Lat/Lon)", self)
         self.load_button.clicked.connect(self.load_coordinates)
         button_layout.addWidget(self.load_button)
 
         # Save As button
-        self.save_button = QPushButton("Save WP (Lat/Lon)", self)
+        self.save_button = QPushButton("SAVE WP (Lat/Lon)", self)
         self.save_button.clicked.connect(self.save_as)
         button_layout.addWidget(self.save_button)
 
         # Save in Meters button
-        self.save_meters_button = QPushButton("Save WP (m)", self)
+        self.save_meters_button = QPushButton("SAVE WP (m)", self)
         self.save_meters_button.clicked.connect(self.save_waypoints_in_meters)
         button_layout.addWidget(self.save_meters_button)
 
         # Load in Meters button
-        self.load_meters_button = QPushButton("Load WP (m)", self)
+        self.load_meters_button = QPushButton("LOAD WP (m)", self)
         self.load_meters_button.clicked.connect(self.load_waypoints_in_meters)
         button_layout.addWidget(self.load_meters_button)
 
         # Clothoid fit button
-        self.fit_button = QPushButton("Clothoid", self)
+        self.fit_button = QPushButton("CLOTHOID", self)
         self.fit_button.clicked.connect(self.fit_clothoid)
         button_layout.addWidget(self.fit_button)
 
         # Z smooth button
-        self.run_z_calc_meters_button = QPushButton('Smooth Z (Meters Source)', self)
+        self.run_z_calc_meters_button = QPushButton('SMOOTH-Z (Meters Source)', self)
         self.run_z_calc_meters_button.clicked.connect(self.run_z_calc_meters)
         button_layout.addWidget(self.run_z_calc_meters_button)
 
-        self.run_z_calc_lat_long_button = QPushButton('Smooth Z (Lat/Lon Source)', self)
+        self.run_z_calc_lat_long_button = QPushButton('SMOOTH-Z (Lat/Lon Source)', self)
         self.run_z_calc_lat_long_button.clicked.connect(self.run_z_calc_lat_long)
         button_layout.addWidget(self.run_z_calc_lat_long_button)
 
         layout.addLayout(button_layout)
 
         self.coordinate_mode = 'latlon'  # or 'meters'
+
+
+    def show_warning_message(self):
+        warning_msg = QMessageBox()
+        warning_msg.setIcon(QMessageBox.Information)
+        warning_msg.setWindowTitle("A Friendly Reminder :)")
+        warning_msg.setText("Ensure your NAVER API credentials are correct and an internet connection is available when launching the program.")
+        warning_msg.setInformativeText("YOU MUST RUN CLOTHOID FITTING BEFORE SMOOTH-Z! Usage guide: https://github.com/junekyoopark/map_path_gui")
+        warning_msg.setStandardButtons(QMessageBox.Ok)
+        warning_msg.exec_()
 
     def get_pos(self, event):
         x, y = event.pos().x(), event.pos().y()
