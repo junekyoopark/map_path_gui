@@ -14,6 +14,7 @@ Note: if you run python using `python` instead of `python3`, then `subprocess.ru
 4. Run `map_gui_uvland.py` or `map_gui_robotland` or `map_gui_kunsan.py`.
 5. ??? (it's a GUI, so... click buttons I guess?)
 6. Profit
+The `SMOOTH-Z` csv values are saved in `output/clothoidal_path_3d.csv`.
 
 ### Why?
 For use in Yonsei Drone (https://yonseidrone.com) and MECar.
