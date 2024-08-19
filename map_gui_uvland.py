@@ -1,7 +1,8 @@
 import sys
 import os
+import subprocess
 import csv
-from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QFileDialog
+from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QFileDialog, QMessageBox
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen
 from PyQt5.QtCore import Qt
 from PIL import Image
@@ -19,6 +20,8 @@ longitude = 126.342193
 zoom = 17
 maptype = 'satellite'
 
+satellite_map_dir = './satellite_map/'
+
 def load_naver_api_credentials(file_path):
     credentials = {}
     with open(file_path, 'r') as file:
@@ -33,23 +36,40 @@ def fetch_map_image(latitude, longitude, zoom, maptype, size, CLIENT_ID, CLIENT_
         'X-NCP-APIGW-API-KEY-ID': CLIENT_ID,
         'X-NCP-APIGW-API-KEY': CLIENT_SECRET
     }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        return Image.open(BytesIO(response.content))
-    else:
-        print("Error fetching the satellite image:", response.status_code, response.text)
-        sys.exit(1)
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Raise an error for bad responses (4xx or 5xx)
+
+        image = Image.open(BytesIO(response.content))
+        image.save(os.path.join(satellite_map_dir, 'uvland.png'))
+        print("Image fetched and saved successfully.")
+        return image
+
+    except (requests.exceptions.RequestException, IOError) as e:
+        print(f"Error fetching the satellite image: {e}")
+        fallback_image_path = os.path.join(satellite_map_dir, 'uvland.png')
+        
+        if os.path.exists(fallback_image_path):
+            print("Using existing map image as a fallback.")
+            return Image.open(fallback_image_path)
+        else:
+            print("No internet connection and no fallback image available. You are cooked...")
+            sys.exit(1)
+
 
 class MapClickApp(QMainWindow):
     def __init__(self, image, latitude, longitude, zoom, csv_file_path):
         super().__init__()
+
+        self.show_warning_message()
+
         self.latitude = latitude
         self.longitude = longitude
         self.zoom = zoom
         self.csv_file_path = csv_file_path
         self.meters_per_pixel = (40075016.686 * math.cos(math.radians(latitude))) / (2 ** (zoom + 8))
         
-        self.setWindowTitle("GUI Path Generator (UVLand)")
+        self.setWindowTitle("GUI Path Generator v0.9.1 by JKP")
         self.setGeometry(100, 100, display_width, display_height)
 
         self.base_image = image.resize((display_width, display_height), Image.ANTIALIAS)
@@ -62,7 +82,7 @@ class MapClickApp(QMainWindow):
         self.label.setPixmap(self.base_pixmap.copy())
         self.label.mousePressEvent = self.get_pos
 
-        self.undo_button = QPushButton("Undo", self)
+        self.undo_button = QPushButton("UNDO (UNCLICK)", self)
         self.undo_button.clicked.connect(self.undo_last_action)
         layout = QVBoxLayout(self)
         layout.addWidget(self.undo_button)
@@ -81,28 +101,52 @@ class MapClickApp(QMainWindow):
         button_layout = QHBoxLayout()
 
         # Load button
-        self.load_button = QPushButton("Load Coordinates in Lat/Long", self)
+        self.load_button = QPushButton("LOAD WP (Lat/Lon)", self)
         self.load_button.clicked.connect(self.load_coordinates)
         button_layout.addWidget(self.load_button)
 
         # Save As button
-        self.save_button = QPushButton("Save As", self)
+        self.save_button = QPushButton("SAVE WP (Lat/Lon)", self)
         self.save_button.clicked.connect(self.save_as)
         button_layout.addWidget(self.save_button)
 
         # Save in Meters button
-        self.save_meters_button = QPushButton("Save Waypoints in Meters", self)
+        self.save_meters_button = QPushButton("SAVE WP (m)", self)
         self.save_meters_button.clicked.connect(self.save_waypoints_in_meters)
         button_layout.addWidget(self.save_meters_button)
 
         # Load in Meters button
-        self.load_meters_button = QPushButton("Load Waypoints in Meters", self)
+        self.load_meters_button = QPushButton("LOAD WP (m)", self)
         self.load_meters_button.clicked.connect(self.load_waypoints_in_meters)
         button_layout.addWidget(self.load_meters_button)
+
+        # Clothoid fit button
+        self.fit_button = QPushButton("CLOTHOID", self)
+        self.fit_button.clicked.connect(self.fit_clothoid)
+        button_layout.addWidget(self.fit_button)
+
+        # Z smooth button
+        self.run_z_calc_meters_button = QPushButton('SMOOTH-Z (Meters Source)', self)
+        self.run_z_calc_meters_button.clicked.connect(self.run_z_calc_meters)
+        button_layout.addWidget(self.run_z_calc_meters_button)
+
+        self.run_z_calc_lat_long_button = QPushButton('SMOOTH-Z (Lat/Lon Source)', self)
+        self.run_z_calc_lat_long_button.clicked.connect(self.run_z_calc_lat_long)
+        button_layout.addWidget(self.run_z_calc_lat_long_button)
 
         layout.addLayout(button_layout)
 
         self.coordinate_mode = 'latlon'  # or 'meters'
+
+
+    def show_warning_message(self):
+        warning_msg = QMessageBox()
+        warning_msg.setIcon(QMessageBox.Information)
+        warning_msg.setWindowTitle("A Friendly Reminder :)")
+        warning_msg.setText("Ensure your NAVER API credentials are correct and an internet connection is available when launching the program.")
+        warning_msg.setInformativeText("YOU MUST RUN CLOTHOID FITTING BEFORE SMOOTH-Z! Usage guide: https://github.com/junekyoopark/map_path_gui")
+        warning_msg.setStandardButtons(QMessageBox.Ok)
+        warning_msg.exec_()
 
     def get_pos(self, event):
         x, y = event.pos().x(), event.pos().y()
@@ -245,8 +289,9 @@ class MapClickApp(QMainWindow):
                     reader = csv.reader(file)
                     self.click_history.clear()
                     for row in reader:
-                        if len(row) == 2:
-                            lat, lon = map(float, row)
+                        if len(row) >= 2:  # Ensure there are at least two columns
+                            lat = float(row[0])  # First column as latitude
+                            lon = float(row[1])  # Second column as longitude
                             x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
                             y = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
                             self.click_history.append((int(x), int(y), lat, lon))
@@ -302,8 +347,9 @@ class MapClickApp(QMainWindow):
                     reader = csv.reader(file)
                     self.click_history.clear()
                     for row in reader:
-                        if len(row) == 2:
-                            delta_lon_meters, delta_lat_meters = map(float, row)
+                        if len(row) >= 2:
+                            delta_lon_meters = float(row[0])  # First column as latitude
+                            delta_lat_meters = float(row[1])  # Second column as longitude
                             lat = self.latitude + (delta_lat_meters / 111320)
                             lon = self.longitude + (delta_lon_meters / (111320 * math.cos(math.radians(self.latitude))))
                             x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
@@ -316,6 +362,127 @@ class MapClickApp(QMainWindow):
                     print("Waypoints in meters loaded successfully.")
             except Exception as e:
                 print("Failed to load waypoints in meters:", str(e))
+
+    def fit_clothoid(self):
+        # Step 1: Save the current waypoints as a CSV file
+        temp_csv_file = os.path.join(os.path.dirname(__file__), 'temp/waypoints.csv')
+        with open(temp_csv_file, 'w', newline='') as file:
+            writer = csv.writer(file)
+            for _, _, lat, lon in self.click_history:
+                delta_lat_meters = (lat - self.latitude) * 111320
+                delta_lon_meters = (lon - self.longitude) * 111320 * math.cos(math.radians(self.latitude))
+                writer.writerow([delta_lon_meters, delta_lat_meters])
+
+        # Step 2: Run the clothoid-fitting program
+        try:
+            # Update the script path to the correct location of the clothoid fitting script
+            script_path = os.path.join(os.path.dirname(__file__), 'clothoid-fitting/clothoid-fitting-optimization.py')
+            subprocess.run(['python3', script_path], check=True)
+
+            # Step 3: Load the new CSV file generated by the clothoid-fitting program
+            fitted_csv_file = os.path.join(os.path.dirname(__file__), 'temp/clothoid_fit_xy_coordinates.csv')
+
+            if os.path.exists(fitted_csv_file):
+                self.load_waypoints_in_meters_from_file(fitted_csv_file)
+            else:
+                print("Fitted CSV file not found.")
+
+        except subprocess.CalledProcessError as e:
+            print("Error running clothoid fitting:", e)
+
+    def load_waypoints_in_meters_from_file(self, file_path):
+        try:
+            with open(file_path, 'r', newline='') as file:
+                reader = csv.reader(file)
+                self.click_history.clear()
+                for row in reader:
+                    if len(row) >= 2:
+                        delta_lon_meters, delta_lat_meters = map(float, row[:2])
+                        lat = self.latitude + (delta_lat_meters / 111320)
+                        lon = self.longitude + (delta_lon_meters / (111320 * math.cos(math.radians(self.latitude))))
+                        x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
+                        y = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
+                        self.click_history.append((int(x), int(y), lat, lon))
+                self.coordinate_mode = 'meters'
+                self.redraw_points()
+                self.csv_loaded = True
+                print("Waypoints from fitting loaded successfully.")
+        except Exception as e:
+            print("Failed to load waypoints from fitting:", str(e))
+
+    def run_z_calc_meters(self):
+        # Save the waypoints on the screen to 'new_xy_coordinates.csv'
+        temp_csv_file = os.path.join(os.path.dirname(__file__), 'temp/clothoid_waypoints.csv')
+        with open(temp_csv_file, 'w', newline='') as file:
+            writer = csv.writer(file)
+            for _, _, lat, lon in self.click_history:
+                delta_lat_meters = (lat - self.latitude) * 111320
+                delta_lon_meters = (lon - self.longitude) * 111320 * math.cos(math.radians(self.latitude))
+                writer.writerow([delta_lon_meters, delta_lat_meters])
+        
+        # Open a file dialog to select the original waypoint file
+        waypoint_file_path, _ = QFileDialog.getOpenFileName(self, "Select Source Waypoints File", "", "CSV Files (*.csv)")
+        
+        if waypoint_file_path:
+            try:
+                # Copy the selected source waypoints file to the working directory
+                # Assuming the script expects the file to be named 'z_calc_source_waypoints.csv'
+                with open(waypoint_file_path, 'r') as infile:
+                    reader = csv.reader(infile)
+                    
+                    with open('temp/z_calc_source_waypoints.csv', 'w', newline='') as outfile:
+                        writer = csv.writer(outfile)
+                        for row in reader:
+                            writer.writerow(row)
+                
+                # Step 3: Run the z_calc.py script
+                subprocess.run(['python3', 'clothoid-fitting/z_calc.py'], check=True)
+                print("Z calculation completed successfully.")
+            except Exception as e:
+                print(f"An error occurred while processing the waypoints file or running z_calc.py: {e}")
+        else:
+            print("No waypoints file selected. Z calculation aborted.")
+
+    def run_z_calc_lat_long(self):
+        # Save the waypoints on the screen to 'new_xy_coordinates.csv'
+        temp_csv_file = os.path.join(os.path.dirname(__file__), 'temp/clothoid_waypoints.csv')
+        with open(temp_csv_file, 'w', newline='') as file:
+            writer = csv.writer(file)
+            for _, _, lat, lon in self.click_history:
+                delta_lat_meters = (lat - self.latitude) * 111320
+                delta_lon_meters = (lon - self.longitude) * 111320 * math.cos(math.radians(self.latitude))
+                writer.writerow([delta_lon_meters, delta_lat_meters])
+        
+        # Open a file dialog to select the original waypoint file
+        waypoint_file_path, _ = QFileDialog.getOpenFileName(self, "Select Source Waypoints File", "", "CSV Files (*.csv)")
+        
+        if waypoint_file_path:
+            try:
+                # Copy and convert the selected source waypoints file to meters and save it to the working directory
+                with open(waypoint_file_path, 'r') as infile:
+                    reader = csv.reader(infile)
+                    
+                    with open('temp/z_calc_source_waypoints.csv', 'w', newline='') as outfile:
+                        writer = csv.writer(outfile)
+                        for row in reader:
+                            lat = float(row[0])
+                            lon = float(row[1])
+                            z = float(row[2])  # Assuming Z value is already in meters
+
+                            # Convert lat/lon to meters
+                            delta_lat_meters = (lat - self.latitude) * 111320
+                            delta_lon_meters = (lon - self.longitude) * 111320 * math.cos(math.radians(self.latitude))
+
+                            # Write the converted values to the output file
+                            writer.writerow([delta_lon_meters, delta_lat_meters, z])
+                            
+                # Step 3: Run the z_calc.py script
+                subprocess.run(['python3', 'clothoid-fitting/z_calc.py'], check=True)
+                print("Z calculation completed successfully.")
+            except Exception as e:
+                print(f"An error occurred while processing the waypoints file or running z_calc.py: {e}")
+        else:
+            print("No waypoints file selected. Z calculation aborted.")
 
 def main():
     api_path = os.path.join(os.path.dirname(__file__), '../config/naver_api.txt')
