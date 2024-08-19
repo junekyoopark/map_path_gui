@@ -11,7 +11,7 @@
     Replace `id` and `secret` with yours
 
 4. Run `map_gui_uvland.py` or `map_gui_robotland` or `map_gui_kunsan.py`.
-5. ??? (it's a GUI my guy)
+5. ??? (it's a GUI, so... click buttons I guess?)
 6. Profit
 
 ### Why?
