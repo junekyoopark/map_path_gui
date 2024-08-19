@@ -102,6 +102,8 @@ class MapClickApp(QMainWindow):
 
         layout.addLayout(button_layout)
 
+        self.coordinate_mode = 'latlon'  # or 'meters'
+
     def get_pos(self, event):
         x, y = event.pos().x(), event.pos().y()
         min_dist = float('inf')
@@ -143,11 +145,19 @@ class MapClickApp(QMainWindow):
         return math.hypot(px - closest_point[0], py - closest_point[1])
 
     def insert_waypoint(self, segment_index, x, y):
-        delta_lat = -(-y + (display_height/2)) * self.meters_per_pixel / 111320
-        delta_lon = (x - (display_width/2)) * self.meters_per_pixel / (111320 * math.cos(math.radians(self.latitude)))
+        if self.coordinate_mode == 'latlon':
+            delta_lat = -(-y + (display_height/2)) * self.meters_per_pixel / 111320
+            delta_lon = (x - (display_width/2)) * self.meters_per_pixel / (111320 * math.cos(math.radians(self.latitude)))
 
-        clicked_lat = self.latitude - delta_lat
-        clicked_lon = self.longitude + delta_lon
+            clicked_lat = self.latitude - delta_lat
+            clicked_lon = self.longitude + delta_lon
+
+        elif self.coordinate_mode == 'meters':
+            delta_lon = (-y + (display_height / 2)) * self.meters_per_pixel
+            delta_lat = (-x + (display_width / 2)) * self.meters_per_pixel
+
+            clicked_lat = self.latitude - delta_lat / 111320
+            clicked_lon = self.longitude + delta_lon / (111320 * math.cos(math.radians(self.latitude)))
 
         # Insert the new point between segment_index and segment_index + 1
         self.click_history.insert(segment_index + 1, (x, y, clicked_lat, clicked_lon))
@@ -155,6 +165,25 @@ class MapClickApp(QMainWindow):
         self.redraw_points()
 
     def add_waypoint(self, x, y):
+        # if self.coordinate_mode == 'latlon':
+        #     delta_lat = -(-y + (display_height/2)) * self.meters_per_pixel / 111320
+        #     delta_lon = (x - (display_width/2)) * self.meters_per_pixel / (111320 * math.cos(math.radians(self.latitude)))
+
+        #     clicked_lat = self.latitude - delta_lat
+        #     clicked_lon = self.longitude + delta_lon
+        #     self.save_to_csv(clicked_lat, clicked_lon)
+
+        #     self.click_history.append((x, y, clicked_lat, clicked_lon))
+
+        # elif self.coordinate_mode == 'meters':
+        #     delta_lat = -(-y + (display_height / 2)) * self.meters_per_pixel
+        #     delta_lon = (x - (display_width / 2)) * self.meters_per_pixel
+
+        #     lat = self.latitude + delta_lat / 111320
+        #     lon = self.longitude + delta_lon / (111320 * math.cos(math.radians(self.latitude)))
+
+        #     self.click_history.append((x, y, lat, lon))
+
         delta_lat = -(-y + (display_height/2)) * self.meters_per_pixel / 111320
         delta_lon = (x - (display_width/2)) * self.meters_per_pixel / (111320 * math.cos(math.radians(self.latitude)))
 
@@ -167,7 +196,6 @@ class MapClickApp(QMainWindow):
         painter.drawPoint(x, y)
         painter.end()
         self.label.update()
-        self.click_history.append((x, y, clicked_lat, clicked_lon))
         self.action_history.append(('add', len(self.click_history) - 1))  # Record the action
 
     def save_to_csv(self, lat, lon):
@@ -222,6 +250,7 @@ class MapClickApp(QMainWindow):
                             x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
                             y = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
                             self.click_history.append((int(x), int(y), lat, lon))
+                self.coordinate_mode = 'latlon'
                 self.redraw_points()
                 self.csv_loaded = True  # Set flag to True when CSV is successfully loaded
             except Exception as e:
@@ -254,14 +283,16 @@ class MapClickApp(QMainWindow):
             try:
                 with open(file_path, 'w', newline='') as file:
                     writer = csv.writer(file)
+                    
                     for x, y, lat, lon in self.click_history:
-                        # Calculate distances in meters from the origin (latitude, longitude)
                         delta_lat_meters = (lat - self.latitude) * 111320
                         delta_lon_meters = (lon - self.longitude) * 111320 * math.cos(math.radians(self.latitude))
                         writer.writerow([delta_lat_meters, delta_lon_meters])
-                print("Waypoints in meters saved successfully.")
+                        print(str(lat)+","+str(lon))
+                    print("Waypoints in meters saved successfully.")
             except Exception as e:
                 print("Failed to save waypoints in meters:", str(e))
+
 
     def load_waypoints_in_meters(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Meters CSV file", "", "CSV Files (*.csv)")
@@ -273,18 +304,16 @@ class MapClickApp(QMainWindow):
                     for row in reader:
                         if len(row) == 2:
                             delta_lat_meters, delta_lon_meters = map(float, row)
-                            lat = (self.latitude + (delta_lat_meters / 111320))
+                            lat = self.latitude + (delta_lat_meters / 111320)
                             lon = self.longitude + (delta_lon_meters / (111320 * math.cos(math.radians(self.latitude))))
-                            # print(str(lat) + ", " + str(lon))
-                            x = -(lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
-                            y = (lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
-                            self.click_history.append((int(y), int(x), lat, lon))
-                            print(str(lat) + ", " + str(lon))
-                            print(str(x) + ", " + str(y))
+                            y = -(lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
+                            x = (lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
+                            self.click_history.append((int(x), int(y), lat, lon))
+                    self.coordinate_mode = 'meters'
 
-                self.redraw_points()
-                self.csv_loaded = True  # Set flag to True when CSV is successfully loaded
-                print("Waypoints in meters loaded successfully.")
+                    self.redraw_points()
+                    self.csv_loaded = True
+                    print("Waypoints in meters loaded successfully.")
             except Exception as e:
                 print("Failed to load waypoints in meters:", str(e))
 
