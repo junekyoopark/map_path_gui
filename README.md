@@ -10,7 +10,7 @@
     ```
     Replace `id` and `secret` with yours
 
-4. Run `map_gui_uvland_fit.py`
+4. Run `map_gui_uvland.py` or `map_gui_kunsan.py`
 5. ??? (it's a GUI my guy)
 6. Profit
 
