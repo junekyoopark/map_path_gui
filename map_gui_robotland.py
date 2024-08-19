@@ -209,25 +209,6 @@ class MapClickApp(QMainWindow):
         self.redraw_points()
 
     def add_waypoint(self, x, y):
-        # if self.coordinate_mode == 'latlon':
-        #     delta_lat = -(-y + (display_height/2)) * self.meters_per_pixel / 111320
-        #     delta_lon = (x - (display_width/2)) * self.meters_per_pixel / (111320 * math.cos(math.radians(self.latitude)))
-
-        #     clicked_lat = self.latitude - delta_lat
-        #     clicked_lon = self.longitude + delta_lon
-        #     self.save_to_csv(clicked_lat, clicked_lon)
-
-        #     self.click_history.append((x, y, clicked_lat, clicked_lon))
-
-        # elif self.coordinate_mode == 'meters':
-        #     delta_lat = -(-y + (display_height / 2)) * self.meters_per_pixel
-        #     delta_lon = (x - (display_width / 2)) * self.meters_per_pixel
-
-        #     lat = self.latitude + delta_lat / 111320
-        #     lon = self.longitude + delta_lon / (111320 * math.cos(math.radians(self.latitude)))
-
-        #     self.click_history.append((x, y, lat, lon))
-
         delta_lat = -(-y + (display_height/2)) * self.meters_per_pixel / 111320
         delta_lon = (x - (display_width/2)) * self.meters_per_pixel / (111320 * math.cos(math.radians(self.latitude)))
 
@@ -240,6 +221,7 @@ class MapClickApp(QMainWindow):
         painter.drawPoint(x, y)
         painter.end()
         self.label.update()
+        self.click_history.append((x, y, clicked_lat, clicked_lon))
         self.action_history.append(('add', len(self.click_history) - 1))  # Record the action
 
     def save_to_csv(self, lat, lon):
