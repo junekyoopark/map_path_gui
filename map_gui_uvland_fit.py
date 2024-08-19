@@ -20,6 +20,8 @@ longitude = 126.342193
 zoom = 17
 maptype = 'satellite'
 
+satellite_map_dir = './satellite_map/'
+
 def load_naver_api_credentials(file_path):
     credentials = {}
     with open(file_path, 'r') as file:
@@ -34,12 +36,26 @@ def fetch_map_image(latitude, longitude, zoom, maptype, size, CLIENT_ID, CLIENT_
         'X-NCP-APIGW-API-KEY-ID': CLIENT_ID,
         'X-NCP-APIGW-API-KEY': CLIENT_SECRET
     }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        return Image.open(BytesIO(response.content))
-    else:
-        print("Error fetching the satellite image:", response.status_code, response.text)
-        sys.exit(1)
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Raise an error for bad responses (4xx or 5xx)
+
+        image = Image.open(BytesIO(response.content))
+        image.save(os.path.join(satellite_map_dir, 'uvland.png'))
+        print("Image fetched and saved successfully.")
+        return image
+
+    except (requests.exceptions.RequestException, IOError) as e:
+        print(f"Error fetching the satellite image: {e}")
+        fallback_image_path = os.path.join(satellite_map_dir, 'uvland.png')
+        
+        if os.path.exists(fallback_image_path):
+            print("Using existing map image as a fallback.")
+            return Image.open(fallback_image_path)
+        else:
+            print("No internet connection and no fallback image available. You are cooked...")
+            sys.exit(1)
+
 
 class MapClickApp(QMainWindow):
     def __init__(self, image, latitude, longitude, zoom, csv_file_path):
