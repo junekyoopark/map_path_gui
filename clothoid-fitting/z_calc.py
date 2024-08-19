@@ -1,14 +1,18 @@
 import numpy as np
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+import os
+
+temp_dir = './temp/'
+output_dir = './output/'
 
 # Step 1: Load the Generated 2D Clothoidal Path
-xy_coordinates = np.genfromtxt('new_xy_coordinates.csv', delimiter=',', skip_header=1)
+xy_coordinates = np.genfromtxt(os.path.join(temp_dir, 'clothoid_waypoints.csv'), delimiter=',', skip_header=1)
 x = xy_coordinates[:, 0]
 y = xy_coordinates[:, 1]
 
 # Step 2: Load original waypoints for Z values
-waypoints = np.genfromtxt('waypoints.csv', delimiter=',', skip_header=1)
+waypoints = np.genfromtxt(os.path.join(temp_dir, 'z_calc_source_waypoints.csv'), delimiter=',', skip_header=1)
 waypoint_x = waypoints[:, 0]
 waypoint_y = waypoints[:, 1]
 waypoint_z = waypoints[:, 2]
@@ -41,13 +45,14 @@ else:
 xyz_path = np.vstack((x, y, z)).T
 
 # Step 9: Save the 3D Path
-np.savetxt('clothoidal_path_3d.csv', xyz_path, delimiter=',', header='x,y,z', comments='', fmt='%.6f')
+np.savetxt(os.path.join(output_dir,'clothoidal_path_3d.csv'), xyz_path, delimiter=',', comments='', fmt='%.6f')
 
 print("3D clothoidal path saved to 'clothoidal_path_3d.csv'")
 
 # Step 10: Plot the 3D Clothoidal Path in the X,Y Plane with Color Dependent on Altitude or Slope
 plt.figure(figsize=(12, 8))
 scatter = plt.scatter(x, y, c=color_data, cmap='viridis', s=10)
+print(x)
 
 # Mark the original waypoints with black crosses
 plt.scatter(waypoint_x, waypoint_y, color='black', marker='x', s=100, label='Waypoints')

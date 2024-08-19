@@ -10,7 +10,7 @@ from gurobipy import *
 from numpy import genfromtxt
 import os
 
-output_dir = './output/'
+output_dir = './temp/'
 
 def pre_solve( path, kappa, arclength, kappa_max ):
 
