@@ -16,3 +16,6 @@
 
 ### Why?
 For use in Yonsei Drone (https://yonseidrone.com) and MECar
+
+### Sources
+The `clothoid-fitting` repository was used: https://github.com/junioranderson12/clothoid-fitting 
