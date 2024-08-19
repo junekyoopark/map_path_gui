@@ -49,7 +49,7 @@ class MapClickApp(QMainWindow):
         self.csv_file_path = csv_file_path
         self.meters_per_pixel = (40075016.686 * math.cos(math.radians(latitude))) / (2 ** (zoom + 8))
         
-        self.setWindowTitle("Map Click Coordinates")
+        self.setWindowTitle("GUI Path Generator (UVLand)")
         self.setGeometry(100, 100, display_width, display_height)
 
         self.base_image = image.resize((display_width, display_height), Image.ANTIALIAS)
@@ -287,7 +287,7 @@ class MapClickApp(QMainWindow):
                     for x, y, lat, lon in self.click_history:
                         delta_lat_meters = (lat - self.latitude) * 111320
                         delta_lon_meters = (lon - self.longitude) * 111320 * math.cos(math.radians(self.latitude))
-                        writer.writerow([delta_lat_meters, delta_lon_meters])
+                        writer.writerow([delta_lon_meters, delta_lat_meters])
                         print(str(lat)+","+str(lon))
                     print("Waypoints in meters saved successfully.")
             except Exception as e:
@@ -303,7 +303,7 @@ class MapClickApp(QMainWindow):
                     self.click_history.clear()
                     for row in reader:
                         if len(row) == 2:
-                            delta_lat_meters, delta_lon_meters = map(float, row)
+                            delta_lon_meters, delta_lat_meters = map(float, row)
                             lat = self.latitude + (delta_lat_meters / 111320)
                             lon = self.longitude + (delta_lon_meters / (111320 * math.cos(math.radians(self.latitude))))
                             x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
