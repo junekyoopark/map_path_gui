@@ -14,9 +14,9 @@ height = 2000
 display_width = 1000
 display_height = 1000
 
-latitude = 36.661078
-longitude = 126.342193
-zoom = 17
+latitude = 35.9466289
+longitude = 126.5909605
+zoom = 18
 maptype = 'satellite'
 
 def load_naver_api_credentials(file_path):
@@ -153,8 +153,8 @@ class MapClickApp(QMainWindow):
             clicked_lon = self.longitude + delta_lon
 
         elif self.coordinate_mode == 'meters':
-            delta_lon = (-y + (display_height / 2)) * self.meters_per_pixel
-            delta_lat = (-x + (display_width / 2)) * self.meters_per_pixel
+            delta_lon = (x - (display_height / 2)) * self.meters_per_pixel
+            delta_lat = -(-y + (display_width / 2)) * self.meters_per_pixel
 
             clicked_lat = self.latitude - delta_lat / 111320
             clicked_lon = self.longitude + delta_lon / (111320 * math.cos(math.radians(self.latitude)))
@@ -306,8 +306,8 @@ class MapClickApp(QMainWindow):
                             delta_lat_meters, delta_lon_meters = map(float, row)
                             lat = self.latitude + (delta_lat_meters / 111320)
                             lon = self.longitude + (delta_lon_meters / (111320 * math.cos(math.radians(self.latitude))))
-                            y = -(lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
-                            x = (lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
+                            x = (lon - self.longitude) * (111320 * math.cos(math.radians(self.latitude))) / self.meters_per_pixel + (display_width / 2)
+                            y = -(lat - self.latitude) * 111320 / self.meters_per_pixel + (display_height / 2)
                             self.click_history.append((int(x), int(y), lat, lon))
                     self.coordinate_mode = 'meters'
 
