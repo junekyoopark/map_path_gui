@@ -13,3 +13,6 @@
 4. Run `map_gui_uvland_fit.py`
 5. ??? (it's a GUI my guy)
 6. Profit
+
+### Why?
+For use in Yonsei Drone (https://yonseidrone.com) and MECar
