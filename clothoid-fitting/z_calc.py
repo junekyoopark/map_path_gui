@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy.spatial import KDTree
 import matplotlib.pyplot as plt
 import os
 
@@ -21,18 +21,31 @@ waypoint_z = waypoints[:, 2]
 arc_length = np.zeros(len(x))
 arc_length[1:] = np.cumsum(np.sqrt(np.diff(x)**2 + np.diff(y)**2))
 
-# Step 4: Calculate the Arc Length at Waypoints Directly
-waypoint_arc_lengths = np.zeros(len(waypoints))
-waypoint_arc_lengths[1:] = np.cumsum(np.sqrt(np.diff(waypoint_x)**2 + np.diff(waypoint_y)**2))
+# New Step: Find the closest clothoidal path points to each waypoint using KDTree
+clothoid_points = np.vstack((x, y)).T  # Clothoidal path points
+waypoint_points = np.vstack((waypoint_x, waypoint_y)).T  # Waypoint coordinates
 
-# Step 5: Interpolate the Z Values Over the Entire Path
-z = np.interp(arc_length, waypoint_arc_lengths, waypoint_z)
+# Build KDTree for efficient nearest neighbor search
+tree = KDTree(clothoid_points)
+
+# Find the closest point indices on the clothoidal path for each waypoint
+_, closest_indices = tree.query(waypoint_points)
+
+# Step 4: Calculate the Arc Length of the Closest Points on Clothoid Path
+matched_arc_lengths = arc_length[closest_indices]
+
+# Ensure indices are unique and sorted for interpolation
+unique_arc_lengths, unique_indices = np.unique(matched_arc_lengths, return_index=True)
+matched_waypoint_z = waypoint_z[unique_indices]
+
+# Step 5: Interpolate the Z Values Over the Entire Path using matched coordinates
+z = np.interp(arc_length, unique_arc_lengths, matched_waypoint_z)
 
 # Step 6: Calculate the Slope of Z
 slope = np.gradient(z, arc_length)
 
 # Step 7: Toggle for Color Mode (choose 'altitude' or 'slope')
-color_mode = 'slope'  # Change this to 'slope' to color by slope
+color_mode = 'altitude'  # Change this to 'slope' to color by slope
 
 if color_mode == 'altitude':
     color_data = z
@@ -45,14 +58,13 @@ else:
 xyz_path = np.vstack((x, y, z)).T
 
 # Step 9: Save the 3D Path
-np.savetxt(os.path.join(output_dir,'clothoidal_path_3d.csv'), xyz_path, delimiter=',', comments='', fmt='%.6f')
+np.savetxt(os.path.join(output_dir, 'clothoidal_path_3d.csv'), xyz_path, delimiter=',', comments='', fmt='%.6f')
 
 print("3D clothoidal path saved to 'clothoidal_path_3d.csv'")
 
 # Step 10: Plot the 3D Clothoidal Path in the X,Y Plane with Color Dependent on Altitude or Slope
 plt.figure(figsize=(12, 8))
 scatter = plt.scatter(x, y, c=color_data, cmap='viridis', s=10)
-print(x)
 
 # Mark the original waypoints with black crosses
 plt.scatter(waypoint_x, waypoint_y, color='black', marker='x', s=100, label='Waypoints')

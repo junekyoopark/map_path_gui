@@ -15,8 +15,8 @@ height = 2000
 display_width = 1000
 display_height = 1000
 
-latitude = 37.5192923
-longitude = 126.6104652
+latitude = 37.519907
+longitude = 126.610632
 zoom = 18
 maptype = 'satellite'
 
